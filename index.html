@@ -1,0 +1,1086 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dashboard de Direcionamento — Kommo CRM</title>
+<style>
+:root{
+  --bg:#0f0f11;--surface:#18181c;--surface2:#1e1e23;
+  --border:rgba(255,255,255,0.07);--border2:rgba(255,255,255,0.12);
+  --text:#f0f0f2;--muted:#888891;--faint:#3a3a44;
+  --blue:#4d9cf7;--green:#4ec994;--red:#f26464;--amber:#f0a04a;--purple:#a78bfa;--teal:#2dd4bf;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'DM Sans','Segoe UI',system-ui,sans-serif;font-size:15px;min-height:100vh}
+
+/* ── Upload ── */
+#upload-screen{display:flex;align-items:center;justify-content:center;min-height:100vh;padding:24px}
+.upload-card{background:var(--surface);border:1px solid var(--border2);border-radius:20px;padding:48px 40px;max-width:520px;width:100%;text-align:center}
+.upload-card h1{font-size:22px;font-weight:600;margin-bottom:8px}
+.upload-card .sub{color:var(--muted);font-size:14px;margin-bottom:32px;line-height:1.5}
+.file-btn{display:flex;flex-direction:column;align-items:center;justify-content:center;border:2px dashed var(--faint);border-radius:14px;padding:40px 24px;cursor:pointer;transition:border-color .2s,background .2s;margin-bottom:24px;text-align:center}
+.file-btn:hover{border-color:var(--blue);background:rgba(77,156,247,.06)}
+.file-btn .icon{font-size:36px;margin-bottom:12px;display:block}
+.file-btn-text{color:var(--blue);font-size:14px;font-weight:500}
+#file-input{display:none}
+.upload-rules{text-align:left;background:var(--surface2);border-radius:10px;padding:16px 20px;font-size:13px;color:var(--muted);line-height:1.8}
+.upload-rules span{color:var(--text)}
+
+/* ── Loading ── */
+#loading-screen{display:none;align-items:center;justify-content:center;min-height:100vh;flex-direction:column;gap:20px}
+.spinner{width:44px;height:44px;border:3px solid var(--faint);border-top-color:var(--blue);border-radius:50%;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+#loading-screen p{color:var(--muted);font-size:14px}
+
+/* ── Dashboard ── */
+#dashboard-screen{display:none;min-height:100vh}
+.dash-header{padding:20px 28px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;position:sticky;top:0;background:var(--bg);z-index:100}
+.dash-header h1{font-size:18px;font-weight:600}
+.dash-header .period{font-size:12px;color:var(--muted);font-family:'DM Mono','Cascadia Code','Consolas',monospace}
+.btn-export{background:var(--surface2);border:1px solid var(--border2);color:var(--text);padding:8px 16px;border-radius:8px;font-size:13px;font-family:'DM Sans','Segoe UI',system-ui,sans-serif;cursor:pointer;transition:background .2s}
+.btn-export:hover{background:var(--faint)}
+.btn-reload{background:transparent;border:none;color:var(--muted);font-size:13px;cursor:pointer;font-family:'DM Sans','Segoe UI',system-ui,sans-serif;padding:8px 12px;border-radius:8px;transition:color .2s}
+.btn-reload:hover{color:var(--text)}
+
+/* ── Nav ── */
+.dash-nav{display:flex;gap:8px;padding:16px 28px;overflow-x:auto;border-bottom:1px solid var(--border);scrollbar-width:none}
+.dash-nav::-webkit-scrollbar{display:none}
+.nav-btn{flex-shrink:0;background:var(--surface);border:1px solid var(--border);color:var(--muted);padding:8px 18px;border-radius:20px;font-size:13px;font-family:'DM Sans','Segoe UI',system-ui,sans-serif;cursor:pointer;transition:all .2s;white-space:nowrap}
+.nav-btn:hover{border-color:var(--border2);color:var(--text)}
+.nav-btn.active-total{background:rgba(167,139,250,.15);border-color:var(--purple);color:var(--purple)}
+.nav-btn.active-setor{background:rgba(77,156,247,.15);border-color:var(--blue);color:var(--blue)}
+
+/* ── Main ── */
+.dash-main{padding:28px;max-width:1400px;margin:0 auto}
+
+/* ── Animations ── */
+@keyframes fadeUp{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:translateY(0)}}
+.animate{animation:fadeUp .35s ease both}
+.a1{animation-delay:.05s}.a2{animation-delay:.1s}.a3{animation-delay:.15s}
+.a4{animation-delay:.2s}.a5{animation-delay:.25s}.a6{animation-delay:.3s}.a7{animation-delay:.35s}
+
+/* ── Section head ── */
+.section-head{margin-bottom:20px}
+.section-head h2{font-size:17px;font-weight:600}
+.section-head p{color:var(--muted);font-size:13px;margin-top:4px}
+
+/* ── KPI cards ── */
+.kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:20px}
+.kpi-card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:20px}
+.kpi-card .label{font-size:12px;color:var(--muted);margin-bottom:8px;text-transform:uppercase;letter-spacing:.5px}
+.kpi-card .value{font-size:26px;font-weight:600;font-family:'DM Mono','Cascadia Code','Consolas',monospace}
+.kpi-card .sub{font-size:12px;color:var(--muted);margin-top:4px}
+.kpi-card .noturno-badge{display:inline-block;margin-top:6px;font-size:11px;background:rgba(240,160,74,.12);color:var(--amber);border:1px solid rgba(240,160,74,.25);border-radius:6px;padding:2px 8px}
+
+/* ── Colors ── */
+.g{color:var(--green)}.r{color:var(--red)}.a{color:var(--amber)}.b{color:var(--blue)}.p{color:var(--purple)}
+
+/* ── Generic card ── */
+.card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:20px}
+.card h3{font-size:14px;font-weight:600;margin-bottom:16px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px}
+
+/* ── Two col ── */
+.two-col{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:20px}
+
+/* ── Assunto bars ── */
+.assunto-list{display:flex;flex-direction:column;gap:10px}
+.assunto-item{display:flex;align-items:center;gap:12px}
+.assunto-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.assunto-label{font-size:13px;color:var(--text);flex:1;min-width:0}
+.assunto-bar-wrap{width:140px;background:var(--surface2);border-radius:4px;height:8px;flex-shrink:0}
+.assunto-bar{height:100%;border-radius:4px}
+.assunto-count{font-size:13px;font-family:'DM Mono','Cascadia Code','Consolas',monospace;width:44px;text-align:right;flex-shrink:0}
+.assunto-pct{font-size:12px;color:var(--muted);font-family:'DM Mono','Cascadia Code','Consolas',monospace;width:36px;text-align:right;flex-shrink:0}
+
+/* ── Direcionamento barras ── */
+.direcao-list{display:flex;flex-direction:column;gap:12px}
+.direcao-item{display:flex;align-items:center;gap:12px}
+.direcao-label{font-size:13px;color:var(--muted);width:100px;flex-shrink:0}
+.direcao-bar-wrap{flex:1;background:var(--surface2);border-radius:6px;height:32px;overflow:hidden}
+.direcao-bar{height:100%;border-radius:6px;display:flex;align-items:center;padding-left:12px;font-size:13px;font-family:'DM Mono','Cascadia Code','Consolas',monospace;color:#fff;font-weight:500;transition:width .7s ease}
+.direcao-count{font-size:14px;font-family:'DM Mono','Cascadia Code','Consolas',monospace;width:50px;text-align:right;flex-shrink:0}
+.direcao-pct{font-size:12px;color:var(--muted);font-family:'DM Mono','Cascadia Code','Consolas',monospace;width:42px;text-align:right;flex-shrink:0}
+
+/* ── Funil ── */
+.funnel-list{display:flex;flex-direction:column;gap:8px}
+.funnel-item{display:flex;align-items:center;gap:12px}
+.funnel-label{font-size:13px;color:var(--muted);width:140px;flex-shrink:0}
+.funnel-bar-wrap{flex:1;background:var(--surface2);border-radius:4px;height:28px;overflow:hidden}
+.funnel-bar{height:100%;border-radius:4px;transition:width .6s ease;display:flex;align-items:center;padding-left:10px;font-size:12px;font-family:'DM Mono','Cascadia Code','Consolas',monospace;color:var(--bg);font-weight:500}
+.funnel-count{font-size:13px;font-family:'DM Mono','Cascadia Code','Consolas',monospace;width:50px;text-align:right;flex-shrink:0}
+.funnel-noturno{font-size:11px;color:var(--amber);margin-left:4px;white-space:nowrap}
+
+/* ── Motivos lista ── */
+.loss-list{display:flex;flex-direction:column;gap:7px}
+.loss-item{display:flex;align-items:center;gap:10px}
+.loss-label{font-size:12px;color:var(--muted);flex:1;line-height:1.3}
+.loss-bar-wrap{width:70px;background:var(--surface2);border-radius:3px;height:6px;flex-shrink:0}
+.loss-bar{height:100%;background:var(--red);border-radius:3px;opacity:.75}
+.loss-count{font-size:11px;font-family:'DM Mono','Cascadia Code','Consolas',monospace;color:var(--muted);width:30px;text-align:right;flex-shrink:0}
+.loss-pct{font-size:11px;color:var(--red);width:32px;text-align:right;flex-shrink:0}
+
+/* ── N1/N2/N3 ── */
+.nnn-row{display:flex;gap:12px;flex-wrap:wrap}
+.nnn-card{flex:1;min-width:90px;background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:16px;text-align:center}
+.nnn-card .nnn-label{font-size:12px;color:var(--muted);margin-bottom:6px;font-weight:500}
+.nnn-card .nnn-val{font-size:26px;font-weight:600;font-family:'DM Mono','Cascadia Code','Consolas',monospace;color:var(--blue)}
+
+/* ── Pizza + lista lateral ── */
+.pizza-row{display:flex;align-items:flex-start;gap:20px}
+.pizza-legend{display:flex;flex-direction:column;gap:7px;flex:1;min-width:0}
+.pizza-legend-item{display:flex;align-items:flex-start;gap:8px;font-size:12px}
+.pizza-legend-dot{width:9px;height:9px;border-radius:50%;flex-shrink:0;margin-top:2px}
+.pizza-legend-label{flex:1;color:var(--muted);line-height:1.35;min-width:0;word-break:break-word}
+.pizza-legend-val{font-family:'DM Mono','Cascadia Code','Consolas',monospace;color:var(--text);font-size:12px;flex-shrink:0}
+.pizza-legend-pct{font-family:'DM Mono','Cascadia Code','Consolas',monospace;color:var(--muted);font-size:11px;width:32px;text-align:right;flex-shrink:0}
+@media(max-width:600px){.pizza-row{flex-direction:column}}
+
+/* ── Tabela ── */
+.tbl-wrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{color:var(--muted);font-weight:500;text-align:left;padding:8px 12px;border-bottom:1px solid var(--border);white-space:nowrap;font-size:12px}
+td{padding:9px 12px;border-bottom:1px solid var(--border);font-family:'DM Mono','Cascadia Code','Consolas',monospace}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:rgba(255,255,255,.02)}
+
+/* ── Observações ── */
+.obs-toggle-btn{display:flex;align-items:center;gap:8px;background:var(--surface2);border:1px solid var(--border2);color:var(--muted);padding:10px 16px;border-radius:10px;font-size:13px;font-family:'DM Sans','Segoe UI',system-ui,sans-serif;cursor:pointer;transition:all .2s;margin-bottom:20px}
+.obs-toggle-btn:hover{color:var(--text);border-color:var(--faint)}
+.obs-toggle-btn .obs-arrow{transition:transform .2s;font-size:11px}
+.obs-toggle-btn.open .obs-arrow{transform:rotate(180deg)}
+.obs-panel{display:none;margin-bottom:20px}
+.obs-panel.open{display:block}
+.obs-list{display:flex;flex-direction:column;gap:10px}
+.obs-item{display:flex;gap:12px;padding:12px 16px;background:var(--surface2);border-radius:10px;border-left:3px solid var(--blue)}
+.obs-item.obs-warn{border-left-color:var(--amber)}
+.obs-item.obs-ok{border-left-color:var(--green)}
+.obs-icon{font-size:16px;flex-shrink:0;margin-top:1px}
+.obs-text{font-size:13px;line-height:1.6;color:var(--muted)}
+.obs-text strong{color:var(--text)}
+
+/* ── Modal ── */
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:200;align-items:center;justify-content:center;padding:24px}
+.modal-overlay.open{display:flex}
+.modal{background:var(--surface);border:1px solid var(--border2);border-radius:20px;padding:32px;max-width:460px;width:100%}
+.modal h2{font-size:18px;font-weight:600;margin-bottom:8px}
+.modal .modal-sub{color:var(--muted);font-size:13px;margin-bottom:24px}
+.form-row{margin-bottom:16px}
+.form-row label{display:block;font-size:12px;color:var(--muted);margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px}
+.form-row input{width:100%;background:var(--surface2);border:1px solid var(--border2);color:var(--text);padding:10px 14px;border-radius:10px;font-size:14px;font-family:'DM Sans','Segoe UI',system-ui,sans-serif}
+.modal-hint{font-size:13px;color:var(--muted);margin-bottom:20px;padding:10px 14px;background:var(--surface2);border-radius:8px}
+.modal-actions{display:flex;gap:10px;justify-content:flex-end}
+.btn-cancel{background:transparent;border:1px solid var(--border2);color:var(--muted);padding:10px 18px;border-radius:10px;cursor:pointer;font-size:14px;font-family:'DM Sans','Segoe UI',system-ui,sans-serif}
+.btn-do{background:var(--blue);border:none;color:#fff;padding:10px 18px;border-radius:10px;cursor:pointer;font-size:14px;font-family:'DM Sans','Segoe UI',system-ui,sans-serif;font-weight:500}
+.btn-do:hover{opacity:.9}
+
+/* ── Responsive ── */
+@media(max-width:768px){
+  .kpi-grid{grid-template-columns:repeat(2,1fr)}
+  .two-col{grid-template-columns:1fr}
+  .dash-main{padding:16px}
+  .dash-header{padding:14px 16px}
+  .dash-nav{padding:12px 16px}
+}
+@media(max-width:480px){.kpi-grid{grid-template-columns:1fr 1fr}}
+</style>
+</head>
+<body>
+
+<!-- ══════════ UPLOAD ══════════ -->
+<div id="upload-screen">
+  <div class="upload-card">
+    <h1>Dashboard de Direcionamento</h1>
+    <p class="sub">Importe a exportação do Kommo para visualizar os indicadores de direcionamento comercial por setor.</p>
+    <div class="file-btn" onclick="document.getElementById('file-input').click()">
+      <span class="icon">📂</span>
+      <span class="file-btn-text">Clique aqui para selecionar o arquivo</span>
+      <span style="font-size:12px;color:var(--muted);margin-top:4px;display:block">Aceita .xlsx ou .csv</span>
+    </div>
+    <input type="file" id="file-input" accept=".xlsx,.csv" style="position:absolute;width:1px;height:1px;opacity:0;pointer-events:none">
+    <div class="upload-rules">
+      <span>Campos usados:</span> ASSUNTO · SETOR RESPONSÁVEL · Etapa do lead · RESPONDEU · VENDIDO (contato) · QTD LIGAÇÕES · Fechada em · Notas 1–5
+    </div>
+  </div>
+</div>
+
+<!-- ══════════ LOADING ══════════ -->
+<div id="loading-screen">
+  <div class="spinner"></div>
+  <p>Processando planilha…</p>
+</div>
+
+<!-- ══════════ DASHBOARD ══════════ -->
+<div id="dashboard-screen">
+  <div class="dash-header">
+    <div>
+      <h1>📊 Dashboard de Direcionamento</h1>
+      <div class="period" id="period-label"></div>
+    </div>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+      <button class="btn-reload" onclick="location.reload()">↩ Novo arquivo</button>
+      <button class="btn-export" onclick="openExport()">⬇ Exportar período</button>
+    </div>
+  </div>
+  <div class="dash-nav" id="dash-nav"></div>
+  <div class="dash-main" id="dash-main"></div>
+</div>
+
+<!-- ══════════ EXPORT MODAL ══════════ -->
+<div class="modal-overlay" id="exportModal">
+  <div class="modal">
+    <h2>Exportar por período</h2>
+    <p class="modal-sub">Gera um HTML standalone com os dados do período filtrado.</p>
+    <div class="form-row"><label>Data inicial</label><input type="date" id="exp-from"></div>
+    <div class="form-row"><label>Data final</label><input type="date" id="exp-to"></div>
+    <div class="modal-hint" id="exp-hint">Defina o período acima para ver a contagem de leads.</div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeExport()">Cancelar</button>
+      <button class="btn-do" onclick="doExport()">Exportar</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════════════
+//  GLOBALS
+// ═══════════════════════════════════════════════════════════════
+let RAW_ROWS = [];
+let DATA     = {};
+let active   = '__total__';
+
+const ABAS_SETOR      = ['COMERCIAL','RECEPÇÃO','TÉCNICA'];
+const ABAS_NORM       = {'COMERCIAL':'COMERCIAL','RECEPÇÃO':'RECEPÇÃO','RECEPCAO':'RECEPÇÃO','TÉCNICA':'TÉCNICA','TECNICA':'TÉCNICA'};
+const ASSUNTO_COLORS  = ['#4d9cf7','#4ec994','#a78bfa','#f0a04a','#2dd4bf','#f26464','#fb7185','#34d399','#60a5fa','#fbbf24'];
+const PIZZA_COLORS    = ['#4d9cf7','#4ec994','#a78bfa','#f0a04a','#2dd4bf','#f26464','#fb7185','#34d399','#60a5fa','#fbbf24','#c084fc','#f87171'];
+const SETOR_BAR_COLOR = {'COMERCIAL':'#4d9cf7','RECEPÇÃO':'#4ec994','TÉCNICA':'#a78bfa'};
+
+// ═══════════════════════════════════════════════════════════════
+//  UPLOAD
+// ═══════════════════════════════════════════════════════════════
+const fi = document.getElementById('file-input');
+fi.addEventListener('change', ()=>{ if(fi.files[0]) handleFile(fi.files[0]); });
+
+// Parser CSV RFC-4180
+function parseCSVRFC(text){
+  const sep = text.indexOf(';') < text.indexOf(',') && text.indexOf(';') !== -1 ? ';' : ',';
+  const rows = [];
+  let i = 0, n = text.length;
+
+  function parseField(){
+    if(i >= n) return '';
+    if(text[i] === '"'){
+      i++;
+      let val = '';
+      while(i < n){
+        if(text[i] === '"'){
+          i++;
+          if(i < n && text[i] === '"'){ val += '"'; i++; }
+          else break;
+        } else {
+          val += text[i++];
+        }
+      }
+      return val;
+    } else {
+      let val = '';
+      while(i < n && text[i] !== sep && text[i] !== '\n' && text[i] !== '\r'){
+        val += text[i++];
+      }
+      return val.trim();
+    }
+  }
+
+  function parseLine(){
+    const fields = [];
+    while(i < n && text[i] !== '\n' && text[i] !== '\r'){
+      fields.push(parseField());
+      if(i < n && text[i] === sep) i++;
+    }
+    if(i < n && text[i] === '\r') i++;
+    if(i < n && text[i] === '\n') i++;
+    return fields;
+  }
+
+  const headers = parseLine();
+  while(i < n){
+    if(text[i] === '\n' || text[i] === '\r'){ if(text[i]==='\r') i++; i++; continue; }
+    const vals = parseLine();
+    if(vals.every(v=>v==='')) continue;
+    const obj = {};
+    headers.forEach((h, idx) => { obj[h] = vals[idx] !== undefined ? vals[idx] : ''; });
+    rows.push(obj);
+  }
+  return rows;
+}
+
+function handleFile(file){
+  if(!file) return;
+  show('loading-screen');
+  const isCSV = file.name.toLowerCase().endsWith('.csv');
+  const reader = new FileReader();
+  reader.onload = e=>{
+    try{
+      let rows;
+      if(isCSV){
+        rows = parseCSVRFC(e.target.result);
+      } else {
+        // XLSX: SheetJS (inline parsing para arquivos .xlsx)
+        // Usando função simples para leitura sem dependência externa
+        const data = new Uint8Array(e.target.result);
+        const workbook = XLSX.read(data, {type:'array', cellDates:false, raw:false});
+        rows = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]], {defval:''});
+      }
+
+      // Filtrar apenas linhas não-vazias
+      rows = rows.filter(r=>{
+        return Object.values(r).some(v => String(v??'').trim() !== '');
+      });
+
+      if(rows.length === 0){
+        alert('Nenhum lead encontrado no arquivo. Verifique se o arquivo está no formato correto.');
+        show('upload-screen');
+        return;
+      }
+
+      RAW_ROWS = rows;
+      processData(rows);
+      buildNav();
+      renderActive();
+      show('dashboard-screen');
+      setPeriodLabel();
+    } catch(err){
+      alert('Erro ao processar arquivo: '+err.message);
+      show('upload-screen');
+    }
+  };
+  if(isCSV) reader.readAsText(file,'UTF-8');
+  else reader.readAsArrayBuffer(file);
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  COLUMN DETECTION
+// ═══════════════════════════════════════════════════════════════
+function colKey(rows,...names){
+  if(!rows.length) return null;
+  const keys = Object.keys(rows[0]);
+  for(const n of names){
+    const f = keys.find(k=>k.trim().toLowerCase()===n.trim().toLowerCase());
+    if(f) return f;
+  }
+  return null;
+}
+function v(row,key){ return key?(row[key]??''):''; }
+
+// ═══════════════════════════════════════════════════════════════
+//  HELPERS
+// ═══════════════════════════════════════════════════════════════
+function isBool1(val){
+  const s = String(val).trim().toLowerCase();
+  return s==='1' || s==='sim' || s==='true';
+}
+
+function isAberto(fechada){
+  const s=String(fechada).trim().toLowerCase();
+  return s===''||s==='não fechado'||s==='nao fechado';
+}
+
+function isConcluido(etapa){
+  return String(etapa).toLowerCase().includes('atendimento conclu');
+}
+
+function isDirecionado(etapa){
+  return String(etapa).trim().toUpperCase()==='LEAD DIRECIONADO';
+}
+
+function extractMotivo(etapa){
+  const m=String(etapa).match(/\((.+)\)/);
+  return m?m[1].trim():null;
+}
+
+function parseDateTime(s){
+  if(!s||String(s).trim()==='') return null;
+  const str=String(s).trim();
+  const m=str.match(/^(\d{2})\.(\d{2})\.(\d{4})\s+(\d{2}):(\d{2})/);
+  if(m) return new Date(+m[3],+m[2]-1,+m[1],+m[4],+m[5],0);
+  const m2=str.match(/^(\d{2})\.(\d{2})\.(\d{4})/);
+  if(m2) return new Date(+m2[3],+m2[2]-1,+m2[1]);
+  const d=new Date(str); return isNaN(d)?null:d;
+}
+
+function diffMinutes(a,b){
+  if(!a||!b) return null;
+  return Math.abs(b.getTime()-a.getTime())/60000;
+}
+
+function fmtTempo(min){
+  if(min===null||isNaN(min)) return null;
+  const d=Math.floor(min/1440),h=Math.floor((min%1440)/60),m=Math.round(min%60);
+  if(d>0&&h>0) return `${d}d ${h}h`;
+  if(d>0) return `${d}d`;
+  if(h>0&&m>0) return `${h}h ${m}min`;
+  if(h>0) return `${h}h`;
+  return `${m}min`;
+}
+
+function pct(a,b){ return b>0?Math.round(a/b*100):0; }
+function fmt(n){ return Number(n).toLocaleString('pt-BR'); }
+function gcResp(v){ return v>30?'g':'r'; }
+function normSetor(s){ return ABAS_NORM[String(s).trim().toUpperCase()]||null; }
+
+// ═══════════════════════════════════════════════════════════════
+//  DATA PROCESSING
+// ═══════════════════════════════════════════════════════════════
+function processData(rows){
+  if(!rows.length) return;
+
+  const CK = {
+    etapa:    colKey(rows,'Etapa do lead','Etapa'),
+    criada:   colKey(rows,'Data Criada','Data_criada','Criado em','Criado_em'),
+    fechada:  colKey(rows,'Fechada em','Fechada_em','Fechado às','Fechado as'),
+    tags:     colKey(rows,'Lead tags','Tags','Lead tags'),
+    assunto:  colKey(rows,'ASSUNTO'),
+    setor:    colKey(rows,'SETOR RESPONSÁVEL','SETOR RESPONSAVEL'),
+    direcao:  colKey(rows,'DIRECIONAMENTO'),
+    qtdLig:   colKey(rows,'QTD LIGAÇÕES','QTD LIGACOES'),
+    respondeu:colKey(rows,'RESPONDEU'),
+    vendido:  colKey(rows,'VENDIDO (contato)','VENDIDO'),
+    produto:  colKey(rows,'PRODUTO / SOLUÇÃO','PRODUTO / SOLUCAO'),
+    nota1:colKey(rows,'Nota 1','Nota'),nota2:colKey(rows,'Nota 2'),
+    nota3:colKey(rows,'Nota 3'),nota4:colKey(rows,'Nota 4'),nota5:colKey(rows,'Nota 5'),
+  };
+
+  const notaCols = ['nota1','nota2','nota3','nota4','nota5']
+    .filter(k=>CK[k]&&rows.some(r=>String(v(r,CK[k])).trim()!==''));
+
+  function subsetSetor(s){
+    return rows.filter(r=>{
+      const ass   = String(v(r,CK.assunto)).trim().toUpperCase();
+      const sNorm = normSetor(String(v(r,CK.setor)).trim().toUpperCase());
+      const etapa = String(v(r,CK.etapa)).trim().toUpperCase();
+      return ass==='OPORTUNIDADE DE VENDA' && sNorm===s && etapa==='LEAD DIRECIONADO';
+    });
+  }
+
+  function totalOVSetor(s){
+    return rows.filter(r=>{
+      const ass   = String(v(r,CK.assunto)).trim().toUpperCase();
+      const sNorm = normSetor(String(v(r,CK.setor)).trim().toUpperCase());
+      return ass==='OPORTUNIDADE DE VENDA' && sNorm===s;
+    }).length;
+  }
+
+  function calc(subset, ovTotal){
+    const total = subset.length;
+    if(total===0) return null;
+
+    let respondeu=0,vendido=0,aberto=0,concluido=0,noturno=0;
+    let totalLig=0,totalNotas=0,tempoSoma=0,tempoQtd=0;
+    const motivos={},assuntoMap={},prodMap={},direcaoCount={N1:0,N2:0,N3:0};
+    let noturnoRespondeu=0,noturnoAberto=0,noturnoVendido=0;
+
+    const direcaoSetor={};  ABAS_SETOR.forEach(s=>direcaoSetor[s]=0);
+    const encSetor={};       ABAS_SETOR.forEach(s=>encSetor[s]=0);
+    const dirTotalSetor={};  ABAS_SETOR.forEach(s=>dirTotalSetor[s]=0);
+
+    subset.forEach(r=>{
+      const etapa    = String(v(r,CK.etapa)).trim();
+      const fechadaS = String(v(r,CK.fechada)).trim();
+      const tags     = String(v(r,CK.tags)).trim().toUpperCase();
+      const assunto  = String(v(r,CK.assunto)).trim().toUpperCase();
+      const setorRaw = String(v(r,CK.setor)).trim().toUpperCase();
+      const sNorm    = normSetor(setorRaw);
+      const dir      = String(v(r,CK.direcao)).trim().toUpperCase();
+      const prod     = String(v(r,CK.produto)).trim();
+      const criada   = parseDateTime(v(r,CK.criada));
+
+      const isN  = tags.includes('NOTURNO');
+      const abrt = isAberto(fechadaS);
+      const conc = isConcluido(etapa);
+      const eDir = isDirecionado(etapa);
+      const resp = isBool1(v(r,CK.respondeu));
+      const vend = isBool1(v(r,CK.vendido));
+
+      if(isN) noturno++;
+      if(resp){respondeu++;if(isN)noturnoRespondeu++;}
+      if(vend){vendido++;  if(isN)noturnoVendido++;}
+      if(abrt){aberto++;   if(isN)noturnoAberto++;}
+      if(conc){
+        const mot=extractMotivo(etapa);
+        if(mot) motivos[mot]=(motivos[mot]||0)+1;
+      }
+
+      if(criada&&!abrt){
+        const fd=parseDateTime(fechadaS);
+        if(fd){const diff=diffMinutes(criada,fd);if(diff!==null&&diff>=0){tempoSoma+=diff;tempoQtd++;}}
+      }
+
+      const lig=parseFloat(v(r,CK.qtdLig));
+      if(!isNaN(lig)&&lig>0) totalLig+=lig;
+
+      notaCols.forEach(nk=>{if(String(v(r,CK[nk])).trim()!=='') totalNotas++;});
+
+      if(assunto) assuntoMap[assunto]=(assuntoMap[assunto]||0)+1;
+      else assuntoMap['(sem assunto)']=(assuntoMap['(sem assunto)']||0)+1;
+
+      if(prod) prodMap[prod]=(prodMap[prod]||0)+1;
+
+      if(assunto==='OPORTUNIDADE DE VENDA'&&setorRaw==='COMERCIAL'&&dir){
+        const dk=dir.replace(/\s/g,'').toUpperCase();
+        if(dk in direcaoCount) direcaoCount[dk]++;
+      }
+
+      if(eDir && sNorm && assunto==='OPORTUNIDADE DE VENDA'){
+        direcaoSetor[sNorm]++;
+      }
+
+      if(conc && sNorm && assunto==='OPORTUNIDADE DE VENDA'){
+        encSetor[sNorm]++;
+      }
+    });
+
+    const tempoMedioMin = tempoQtd>0?tempoSoma/tempoQtd:null;
+    const baseDir = ovTotal!==undefined ? ovTotal : total;
+
+    return {
+      total, respondeu, vendido, aberto,
+      concluido: subset.filter(r=>isConcluido(String(v(r,CK.etapa)))).length,
+      noturno, noturnoRespondeu, noturnoAberto, noturnoVendido,
+      direcaoSetor, encSetor,
+      ovTotal: baseDir,
+      totalLig,
+      mediaLigPct: total>0?Math.round(totalLig/total*100):0,
+      totalNotas,
+      mediaNotasPct: total>0?Math.round(totalNotas/total*100):0,
+      tempoMedioMin, tempoMedioFmt: fmtTempo(tempoMedioMin),
+      motivos, assuntoMap, prodMap, direcaoCount,
+      hasLig:     totalLig>0,
+      hasProd:    Object.keys(prodMap).length>0,
+      hasMotivos: Object.keys(motivos).length>0,
+      hasNNN:     Object.values(direcaoCount).some(n=>n>0),
+    };
+  }
+
+  DATA['__total__'] = calc(rows, rows.length);
+  DATA['__total__'].ovPorSetor = {};
+  ABAS_SETOR.forEach(s=>{ DATA['__total__'].ovPorSetor[s] = totalOVSetor(s); });
+
+  ABAS_SETOR.forEach(s=>{
+    const sub = subsetSetor(s);
+    const ovT = totalOVSetor(s);
+    DATA[s] = sub.length>0 ? calc(sub, ovT) : null;
+    if(DATA[s]) DATA[s].ovTotal = ovT;
+  });
+
+  if(DATA['__total__']){
+    const am = {};
+    rows.forEach(r=>{
+      const a = String(v(r,CK.assunto)).trim();
+      const key = a===''?'(sem assunto)':a.toUpperCase();
+      am[key]=(am[key]||0)+1;
+    });
+    DATA['__total__'].assuntoMapTotal = am;
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  NAV
+// ═══════════════════════════════════════════════════════════════
+function buildNav(){
+  const nav = document.getElementById('dash-nav');
+  nav.innerHTML = '';
+  const mk=(key,label,isTot)=>{
+    const btn=document.createElement('button');
+    btn.className='nav-btn'+(isTot?' active-total':'');
+    btn.textContent=label; btn.dataset.key=key;
+    btn.onclick=()=>setActive(key);
+    nav.appendChild(btn);
+  };
+  mk('__total__','Visão Geral',true);
+  ABAS_SETOR.forEach(s=>{ if(DATA[s]&&DATA[s].total>0) mk(s,capitalize(s),false); });
+}
+
+function setActive(key){
+  active=key;
+  document.querySelectorAll('.nav-btn').forEach(b=>{
+    b.classList.remove('active-total','active-setor');
+    if(b.dataset.key===key) b.classList.add(key==='__total__'?'active-total':'active-setor');
+  });
+  renderActive();
+}
+
+function capitalize(s){ return s.charAt(0).toUpperCase()+s.slice(1).toLowerCase(); }
+
+// ═══════════════════════════════════════════════════════════════
+//  RENDER
+// ═══════════════════════════════════════════════════════════════
+function renderActive(){
+  const main=document.getElementById('dash-main');
+  main.innerHTML='';
+  if(active==='__total__') renderTotal(main);
+  else renderSetor(main,active);
+}
+
+function renderTotal(main){
+  const d=DATA['__total__'];
+  if(!d) return;
+
+  main.innerHTML+=`<div class="section-head animate"><h2>Visão Geral</h2><p>${fmt(d.total)} leads no período</p></div>`;
+
+  main.innerHTML+=`
+  <div class="two-col animate a1">
+    <div class="card" style="display:flex;flex-direction:column;justify-content:center">
+      <h3>Total de Leads</h3>
+      <div style="font-size:52px;font-weight:700;font-family:'DM Mono','Cascadia Code','Consolas',monospace;line-height:1">${fmt(d.total)}</div>
+      <div style="font-size:13px;color:var(--muted);margin-top:10px">
+        ${d.noturno>0?`<span style="color:var(--amber)">🌙 ${d.noturno} noturno${d.noturno>1?'s':''}</span>`:'no período'}
+      </div>
+    </div>
+    ${buildAssuntos(d.assuntoMapTotal||d.assuntoMap, d.total)}
+  </div>`;
+
+  const totalDir = ABAS_SETOR.reduce((s,k)=>(s+(d.direcaoSetor[k]||0)),0);
+  main.innerHTML+=`
+  <div class="kpi-grid animate a2">
+    <div class="kpi-card">
+      <div class="label">Responderam</div>
+      <div class="value b">${fmt(d.respondeu)}</div>
+      <div class="sub">${pct(d.respondeu,d.total)}% dos leads</div>
+      ${d.noturnoRespondeu>0?`<div class="noturno-badge">🌙 ${d.noturnoRespondeu}</div>`:''}
+    </div>
+    <div class="kpi-card">
+      <div class="label">Em Aberto</div>
+      <div class="value a">${fmt(d.aberto)}</div>
+      <div class="sub">${pct(d.aberto,d.total)}% do total</div>
+      ${d.noturnoAberto>0?`<div class="noturno-badge">🌙 ${d.noturnoAberto}</div>`:''}
+    </div>
+    <div class="kpi-card">
+      <div class="label">Direcionados (OV)</div>
+      <div class="value p">${fmt(totalDir)}</div>
+      <div class="sub">leads OV com etapa direcionada</div>
+    </div>
+    <div class="kpi-card">
+      <div class="label">Encerrados</div>
+      <div class="value r">${fmt(d.concluido)}</div>
+      <div class="sub">${pct(d.concluido,d.total)}% do total</div>
+    </div>
+  </div>`;
+
+  main.innerHTML+=buildDirecaoDuplo(d,'animate a3');
+
+  const statsCards=[];
+  if(d.hasLig) statsCards.push(`
+    <div class="kpi-card">
+      <div class="label">Total de Ligações</div>
+      <div class="value b">${fmt(d.totalLig)}</div>
+      <div class="sub">${d.mediaLigPct}% dos leads direcionados receberam ligação</div>
+    </div>`);
+  if(d.totalNotas>0) statsCards.push(`
+    <div class="kpi-card">
+      <div class="label">Total de Notas</div>
+      <div class="value p">${fmt(d.totalNotas)}</div>
+      <div class="sub">${d.mediaNotasPct}% dos leads direcionados têm nota</div>
+    </div>`);
+  if(d.tempoMedioFmt) statsCards.push(`
+    <div class="kpi-card">
+      <div class="label">Tempo Médio (fechados)</div>
+      <div class="value" style="font-size:22px">${d.tempoMedioFmt}</div>
+      <div class="sub">desde criação até fechamento</div>
+    </div>`);
+  if(statsCards.length>0){
+    main.innerHTML+=`<div class="kpi-grid animate a4" style="grid-template-columns:repeat(${Math.min(3,statsCards.length)},1fr)">${statsCards.join('')}</div>`;
+  }
+
+  if(d.hasMotivos){
+    main.innerHTML+=`<div class="card animate a5" style="margin-bottom:20px" id="pizza-mot-total"></div>`;
+    setTimeout(()=>drawPizzaComLista('pizza-mot-total','Motivos de Encerramento',d.motivos),0);
+  }
+
+  main.innerHTML+=buildSetorCompare('animate a6');
+
+  if(d.hasProd){
+    main.innerHTML+=`<div class="card animate a6" style="margin-bottom:20px" id="pizza-prod-total"></div>`;
+    setTimeout(()=>drawPizzaComLista('pizza-prod-total','Produto / Solução',d.prodMap),0);
+  }
+
+  main.innerHTML+=buildObsToggle(d);
+}
+
+function renderSetor(main, setor){
+  const d=DATA[setor];
+  if(!d||d.total===0){ main.innerHTML=`<p style="color:var(--muted);padding:40px">Sem dados para este setor.</p>`; return; }
+
+  const nome=capitalize(setor);
+  const txDir=pct(d.total, d.ovTotal);
+  main.innerHTML+=`<div class="section-head animate">
+    <h2>${nome}</h2>
+    <p>${fmt(d.total)} leads direcionados de ${fmt(d.ovTotal)} oportunidades de venda — tx. direcionamento: ${txDir}%</p>
+  </div>`;
+
+  main.innerHTML+=`
+  <div class="kpi-grid animate a1">
+    <div class="kpi-card">
+      <div class="label">Direcionados</div>
+      <div class="value p">${fmt(d.total)}</div>
+      <div class="sub">${txDir}% das OV do setor</div>
+      ${d.noturno>0?`<div class="noturno-badge">🌙 ${d.noturno}</div>`:''}
+    </div>
+    <div class="kpi-card">
+      <div class="label">Responderam</div>
+      <div class="value b">${fmt(d.respondeu)}</div>
+      <div class="sub">${pct(d.respondeu,d.total)}% dos direcionados</div>
+    </div>
+    <div class="kpi-card">
+      <div class="label">Vendidos</div>
+      <div class="value g">${fmt(d.vendido)}</div>
+      <div class="sub">${pct(d.vendido,d.total)}% dos direcionados</div>
+    </div>
+    <div class="kpi-card">
+      <div class="label">Em Aberto</div>
+      <div class="value a">${fmt(d.aberto)}</div>
+      <div class="sub">${pct(d.aberto,d.total)}% dos direcionados</div>
+    </div>
+  </div>`;
+
+  const stats=[];
+  if(d.hasLig) stats.push(`
+    <div class="kpi-card">
+      <div class="label">Total de Ligações</div>
+      <div class="value b">${fmt(d.totalLig)}</div>
+      <div class="sub">${d.mediaLigPct}% dos direcionados receberam ligação</div>
+    </div>`);
+  if(d.totalNotas>0) stats.push(`
+    <div class="kpi-card">
+      <div class="label">Total de Notas</div>
+      <div class="value p">${fmt(d.totalNotas)}</div>
+      <div class="sub">${d.mediaNotasPct}% têm ao menos 1 nota</div>
+    </div>`);
+  if(d.tempoMedioFmt) stats.push(`
+    <div class="kpi-card">
+      <div class="label">Tempo Médio (fechados)</div>
+      <div class="value" style="font-size:22px">${d.tempoMedioFmt}</div>
+      <div class="sub">criação → fechamento</div>
+    </div>`);
+  stats.push(`
+    <div class="kpi-card">
+      <div class="label">Encerrados</div>
+      <div class="value r">${fmt(d.concluido)}</div>
+      <div class="sub">${pct(d.concluido,d.total)}% dos direcionados</div>
+    </div>`);
+  if(stats.length>0){
+    main.innerHTML+=`<div class="kpi-grid animate a2" style="grid-template-columns:repeat(${Math.min(4,stats.length)},1fr)">${stats.join('')}</div>`;
+  }
+
+  main.innerHTML+=buildFunnel(d,'animate a3');
+
+  if(setor==='COMERCIAL'&&d.hasNNN) main.innerHTML+=buildNNN(d,'animate a4');
+
+  const id1=`pizza-mot-${setor}`, id2=`pizza-prod-${setor}`;
+  let pRow='';
+  if(d.hasMotivos) pRow+=`<div class="card" id="${id1}"></div>`;
+  if(d.hasProd)    pRow+=`<div class="card" id="${id2}"></div>`;
+  if(pRow){
+    const cols=(d.hasMotivos&&d.hasProd)?2:1;
+    main.innerHTML+=`<div class="two-col animate a5" style="grid-template-columns:repeat(${cols},1fr)">${pRow}</div>`;
+    setTimeout(()=>{
+      if(d.hasMotivos) drawPizzaComLista(id1,'Motivos de Encerramento',d.motivos);
+      if(d.hasProd)    drawPizzaComLista(id2,'Produto / Solução',d.prodMap);
+    },0);
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  BUILDERS
+// ═══════════════════════════════════════════════════════════════
+
+function buildAssuntos(amap, totalLeads){
+  const entries = Object.entries(amap).sort((a,b)=>b[1]-a[1]);
+  const rows = entries.map(([label,n],i)=>{
+    const p=pct(n,totalLeads), w=Math.max(2,p);
+    const isSem = label==='(sem assunto)';
+    const cor = isSem?'#3a3a44':ASSUNTO_COLORS[i%ASSUNTO_COLORS.length];
+    const lbl = isSem?`<span style="color:var(--faint);font-style:italic">Sem assunto</span>`:capitalize(label);
+    return `<div class="assunto-item">
+      <div class="assunto-dot" style="background:${cor}"></div>
+      <div class="assunto-label">${lbl}</div>
+      <div class="assunto-bar-wrap"><div class="assunto-bar" style="width:${w}%;background:${cor}"></div></div>
+      <div class="assunto-count">${fmt(n)}</div>
+      <div class="assunto-pct">${p}%</div>
+    </div>`;
+  });
+  return `<div class="card"><h3>Distribuição por Assunto</h3><div class="assunto-list">${rows.join('')}</div></div>`;
+}
+
+function buildDirecaoDuplo(d, cls){
+  const totalDir = ABAS_SETOR.reduce((s,k)=>s+(d.direcaoSetor[k]||0),0);
+  let htmlDir='';
+  if(totalDir>0){
+    const rows=ABAS_SETOR.filter(s=>d.direcaoSetor[s]>0).map(s=>{
+      const n=d.direcaoSetor[s], p=pct(n,totalDir), w=Math.max(4,p);
+      const cor=SETOR_BAR_COLOR[s]||'#4d9cf7';
+      const ovS = d.ovPorSetor?d.ovPorSetor[s]:0;
+      const txD = pct(n,ovS);
+      return `<div class="direcao-item">
+        <div class="direcao-label">${capitalize(s)}</div>
+        <div class="direcao-bar-wrap"><div class="direcao-bar" style="width:${w}%;background:${cor}">${n}</div></div>
+        <div class="direcao-count">${fmt(n)}</div>
+        <div class="direcao-pct">${txD}%</div>
+      </div>`;
+    });
+    htmlDir=`<div class="card">
+      <h3>Direcionados por Setor</h3>
+      <div style="font-size:11px;color:var(--muted);margin-bottom:12px">% = taxa de direcionamento sobre total OV do setor</div>
+      <div class="direcao-list">${rows.join('')}</div>
+    </div>`;
+  }
+
+  let htmlEnc='';
+  const hasEnc=ABAS_SETOR.some(s=>(d.encSetor[s]||0)>0||(d.direcaoSetor[s]||0)>0);
+  if(hasEnc){
+    const rows=ABAS_SETOR.filter(s=>(d.direcaoSetor[s]||0)+(d.encSetor[s]||0)>0).map(s=>{
+      const dir=d.direcaoSetor[s]||0, enc=d.encSetor[s]||0;
+      const tot=Math.max(dir+enc,1);
+      const pDir=pct(dir,tot), pEnc=pct(enc,tot);
+      return `<div style="margin-bottom:14px">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:5px">
+          <span style="font-size:13px;color:var(--text);font-weight:500">${capitalize(s)}</span>
+          <span style="font-size:11px;color:var(--muted);font-family:'DM Mono','Cascadia Code','Consolas',monospace">${fmt(dir)} dir. · ${fmt(enc)} enc.</span>
+        </div>
+        <div style="display:flex;border-radius:6px;overflow:hidden;height:24px;background:var(--surface2)">
+          ${dir>0?`<div style="width:${Math.max(4,pDir)}%;background:${SETOR_BAR_COLOR[s]||'#4d9cf7'};display:flex;align-items:center;justify-content:center;font-size:11px;color:#fff;font-family:'DM Mono','Cascadia Code','Consolas',monospace;font-weight:600">${dir}</div>`:''}
+          ${enc>0?`<div style="width:${Math.max(4,pEnc)}%;background:var(--red);display:flex;align-items:center;justify-content:center;font-size:11px;color:#fff;font-family:'DM Mono','Cascadia Code','Consolas',monospace;font-weight:600">${enc}</div>`:''}
+        </div>
+        <div style="display:flex;gap:16px;margin-top:4px">
+          <span style="font-size:11px;color:${SETOR_BAR_COLOR[s]||'#4d9cf7'}">▬ Direcionados: ${dir}</span>
+          <span style="font-size:11px;color:var(--red)">▬ Encerrados: ${enc}</span>
+        </div>
+      </div>`;
+    });
+    htmlEnc=`<div class="card"><h3>Encerramentos por Setor</h3>${rows.join('')}</div>`;
+  }
+
+  if(!htmlDir&&!htmlEnc) return '';
+  const cols=(htmlDir&&htmlEnc)?2:1;
+  return `<div class="two-col ${cls}" style="grid-template-columns:repeat(${cols},1fr)">${htmlDir}${htmlEnc}</div>`;
+}
+
+function buildFunnel(d,cls){
+  const items=[
+    {label:'Direcionados',n:d.total,      noturno:d.noturno,          color:'#a78bfa'},
+    {label:'Respondeu',   n:d.respondeu,  noturno:d.noturnoRespondeu, color:'#4d9cf7'},
+    {label:'Em aberto',   n:d.aberto,     noturno:d.noturnoAberto,    color:'#f0a04a'},
+    {label:'Vendido',     n:d.vendido,    noturno:d.noturnoVendido,   color:'#4ec994'},
+    {label:'Encerrado',   n:d.concluido,  noturno:null,               color:'#f26464'},
+  ];
+  const max=d.total||1;
+  const rows=items.map(it=>{
+    const w=Math.max(2,Math.round(it.n/max*100));
+    const nt=(it.noturno&&it.noturno>0)?`<span class="funnel-noturno">🌙 ${it.noturno}</span>`:'';
+    return `<div class="funnel-item">
+      <div class="funnel-label">${it.label}</div>
+      <div class="funnel-bar-wrap"><div class="funnel-bar" style="width:${w}%;background:${it.color}">${it.n>0?it.n:''}</div></div>
+      <div class="funnel-count">${fmt(it.n)}</div>${nt}
+    </div>`;
+  });
+  return `<div class="card ${cls}" style="margin-bottom:20px"><h3>Funil de Leads</h3><div class="funnel-list">${rows.join('')}</div></div>`;
+}
+
+function buildNNN(d,cls){
+  const dc=d.direcaoCount;
+  return `<div class="card ${cls}" style="margin-bottom:20px">
+    <h3>Direcionamento Interno — Oportunidades Comerciais</h3>
+    <div class="nnn-row">
+      ${['N1','N2','N3'].filter(k=>dc[k]>0).map(k=>`
+        <div class="nnn-card"><div class="nnn-label">${k}</div><div class="nnn-val">${dc[k]}</div></div>`).join('')}
+    </div>
+  </div>`;
+}
+
+function buildSetorCompare(cls){
+  const setores=ABAS_SETOR.filter(s=>DATA[s]&&DATA[s].total>0);
+  if(setores.length===0) return '';
+  const rows=setores.map(s=>{
+    const d=DATA[s];
+    const txDir  = pct(d.total, d.ovTotal);
+    const txResp = pct(d.respondeu, d.total);
+    const txVend = pct(d.vendido,   d.total);
+    const txPerd = pct(d.concluido, d.total);
+    return `<tr>
+      <td style="font-family:'DM Sans','Segoe UI',system-ui,sans-serif;font-weight:500">${capitalize(s)}</td>
+      <td>${fmt(d.total)}</td>
+      <td class="b">${txDir}%</td>
+      <td class="${gcResp(txResp)}">${txResp}%</td>
+      <td class="g">${txVend}%</td>
+      <td class="r">${txPerd}%</td>
+      <td>${d.tempoMedioFmt||'—'}</td>
+    </tr>`;
+  });
+  return `<div class="card ${cls}" style="margin-bottom:20px">
+    <h3>Comparativo por Setor</h3>
+    <div style="font-size:11px;color:var(--muted);margin-bottom:12px">Base: leads direcionados (OV + setor + etapa = Direcionado). Tx. direcionamento = direcionados ÷ total OV do setor.</div>
+    <div class="tbl-wrap"><table>
+      <thead><tr>
+        <th>Setor</th>
+        <th>Direcionados</th>
+        <th>Tx. Direcionamento</th>
+        <th>Tx. Resposta <span style="font-weight:400">&gt;30%=verde</span></th>
+        <th>Tx. Venda</th>
+        <th>Tx. Perda</th>
+        <th>Tempo Médio</th>
+      </tr></thead>
+      <tbody>${rows.join('')}</tbody>
+    </table></div>
+  </div>`;
+}
+
+function buildObsToggle(d){
+  const obs=[];
+  const setores=ABAS_SETOR.filter(s=>DATA[s]&&DATA[s].total>0);
+  if(setores.length>0){
+    const top=setores.reduce((a,b)=>DATA[b].total>DATA[a].total?b:a);
+    obs.push({icon:'📌',type:'',text:`<strong>${capitalize(top)}</strong> é o setor com maior volume de direcionamentos: <strong>${fmt(DATA[top].total)}</strong> leads.`});
+  }
+  const comVenda=setores.filter(s=>DATA[s].vendido>0);
+  if(comVenda.length>0){
+    const best=comVenda.reduce((a,b)=>pct(DATA[a].vendido,DATA[a].total)>pct(DATA[b].vendido,DATA[b].total)?a:b);
+    obs.push({icon:'🏆',type:'ok',text:`<strong>${capitalize(best)}</strong> tem a melhor taxa de venda: <strong>${pct(DATA[best].vendido,DATA[best].total)}%</strong> dos direcionados.`});
+  }
+  if(d.hasMotivos){
+    const top=Object.entries(d.motivos).sort((a,b)=>b[1]-a[1])[0];
+    const tot=Object.values(d.motivos).reduce((a,b)=>a+b,0);
+    obs.push({icon:'⚠️',type:'warn',text:`Principal encerramento: <strong>${top[0]}</strong> — ${top[1]} casos (${pct(top[1],tot)}%).`});
+  }
+  if(d.noturno>0) obs.push({icon:'🌙',type:'',text:`<strong>${d.noturno}</strong> leads noturnos (${pct(d.noturno,d.total)}%). Avaliar cobertura fora do horário comercial.`});
+  if(d.aberto>0)  obs.push({icon:'⏳',type:'warn',text:`<strong>${fmt(d.aberto)}</strong> leads ainda em aberto (${pct(d.aberto,d.total)}%). Verificar follow-ups.`});
+  if(obs.length===0) return '';
+  const items=obs.map(o=>`<div class="obs-item obs-${o.type}"><div class="obs-icon">${o.icon}</div><div class="obs-text">${o.text}</div></div>`).join('');
+  return `
+    <button class="obs-toggle-btn" onclick="toggleObs(this)">
+      💡 Observações automáticas <span class="obs-arrow">▼</span>
+    </button>
+    <div class="obs-panel"><div class="obs-list">${items}</div></div>`;
+}
+function toggleObs(btn){ btn.classList.toggle('open'); btn.nextElementSibling.classList.toggle('open'); }
+
+// ═══════════════════════════════════════════════════════════════
+//  PIZZA + LISTA
+// ═══════════════════════════════════════════════════════════════
+function drawPizzaComLista(cardId, title, dataMap){
+  const card=document.getElementById(cardId);
+  if(!card) return;
+  const entries=Object.entries(dataMap).sort((a,b)=>b[1]-a[1]).slice(0,12);
+  const total=entries.reduce((s,[,n])=>s+n,0);
+  if(total===0){ card.innerHTML=`<h3>${title}</h3><p style="color:var(--muted);font-size:13px">Sem dados.</p>`; return; }
+
+  const size=220,cx=size/2,cy=size/2,r=98,innerR=44;
+  let svg=`<svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" style="flex-shrink:0">`;
+  let startAngle=-Math.PI/2;
+  entries.forEach(([,n],i)=>{
+    const slice=(n/total)*2*Math.PI, endAngle=startAngle+slice;
+    const x1=cx+r*Math.cos(startAngle),y1=cy+r*Math.sin(startAngle);
+    const x2=cx+r*Math.cos(endAngle),  y2=cy+r*Math.sin(endAngle);
+    const ix1=cx+innerR*Math.cos(endAngle), iy1=cy+innerR*Math.sin(endAngle);
+    const ix2=cx+innerR*Math.cos(startAngle),iy2=cy+innerR*Math.sin(startAngle);
+    const la=slice>Math.PI?1:0;
+    const col=PIZZA_COLORS[i%PIZZA_COLORS.length];
+    svg+=`<path d="M ${x1} ${y1} A ${r} ${r} 0 ${la} 1 ${x2} ${y2} L ${ix1} ${iy1} A ${innerR} ${innerR} 0 ${la} 0 ${ix2} ${iy2} Z" fill="${col}" stroke="var(--surface)" stroke-width="2"/>`;
+    startAngle=endAngle;
+  });
+  svg+=`<text x="${cx}" y="${cy-5}" text-anchor="middle" fill="var(--text)" font-size="20" font-weight="700" font-family="DM Mono,monospace">${entries.length}</text>`;
+  svg+=`<text x="${cx}" y="${cy+13}" text-anchor="middle" fill="var(--muted)" font-size="10" font-family="DM Sans,sans-serif">tipos</text>`;
+  svg+=`</svg>`;
+
+  let lista=`<div class="loss-list" style="padding-top:4px;justify-content:center">`;
+  entries.forEach(([label,n],i)=>{
+    const p=pct(n,total), col=PIZZA_COLORS[i%PIZZA_COLORS.length];
+    const lb=label.length>38?label.slice(0,36)+'…':label;
+    lista+=`<div class="loss-item">
+      <div style="width:9px;height:9px;border-radius:50%;background:${col};flex-shrink:0"></div>
+      <div class="loss-label" title="${label}">${lb}</div>
+      <div class="loss-bar-wrap"><div class="loss-bar" style="width:${p}%;background:${col};opacity:0.85"></div></div>
+      <div class="loss-count">${n}</div>
+      <div class="loss-pct">${p}%</div>
+    </div>`;
+  });
+  lista+=`</div>`;
+
+  card.innerHTML=`<h3>${title}</h3><div class="pizza-row">${svg}${lista}</div>`;
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  UTILS
+// ═══════════════════════════════════════════════════════════════
+function show(id){
+  ['upload-screen','loading-screen','dashboard-screen'].forEach(s=>document.getElementById(s).style.display='none');
+  const t=document.getElementById(id);
+  t.style.display=id==='loading-screen'?'flex':'block';
+}
+
+function setPeriodLabel(){
+  const dates=RAW_ROWS.map(r=>{
+    const ck=Object.keys(r).find(k=>k.toLowerCase().includes('data criada'));
+    return ck?parseDateTime(r[ck]):null;
+  }).filter(Boolean).sort((a,b)=>a-b);
+  if(dates.length>0){
+    const f=d=>`${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`;
+    document.getElementById('period-label').textContent=`${f(dates[0])} — ${f(dates[dates.length-1])}`;
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  EXPORT
+// ═══════════════════════════════════════════════════════════════
+function openExport(){ document.getElementById('exportModal').classList.add('open'); updateExportHint(); }
+function closeExport(){ document.getElementById('exportModal').classList.remove('open'); }
+
+['exp-from','exp-to'].forEach(id=>{
+  const el=document.getElementById(id);
+  if(el) el.addEventListener('change',updateExportHint);
+});
+
+function updateExportHint(){
+  const from=document.getElementById('exp-from').value;
+  const to=document.getElementById('exp-to').value;
+  const hint=document.getElementById('exp-hint');
+  if(!from||!to){hint.textContent='Defina o período para ver a contagem.';return;}
+  const fd=new Date(from),td=new Date(to);td.setHours(23,59,59);
+  const n=RAW_ROWS.filter(r=>{
+    const ck=Object.keys(r).find(k=>k.toLowerCase().includes('data criada'));
+    if(!ck) return true;
+    const d=parseDateTime(r[ck]);return d&&d>=fd&&d<=td;
+  }).length;
+  hint.textContent=`${n} leads no período selecionado.`;
+}
+
+function doExport(){
+  const from=document.getElementById('exp-from').value;
+  const to=document.getElementById('exp-to').value;
+  if(!from||!to){alert('Defina o período.');return;}
+  const fd=new Date(from),td=new Date(to);td.setHours(23,59,59);
+  const filtered=RAW_ROWS.filter(r=>{
+    const ck=Object.keys(r).find(k=>k.toLowerCase().includes('data criada'));
+    if(!ck) return true;
+    const d=parseDateTime(r[ck]);return d&&d>=fd&&d<=td;
+  });
+  if(!filtered.length){alert('Nenhum lead no período.');return;}
+  let html=document.documentElement.outerHTML;
+  html=html.replace(/<div id="upload-screen"[\s\S]*?<\/div>\s*\n\s*<!-- .*LOADING/,'<!-- LOADING');
+  const boot=`<script>(function(){const rows=${JSON.stringify(filtered)};RAW_ROWS=rows;processData(rows);buildNav();renderActive();show('dashboard-screen');setPeriodLabel();})();<\/script>`;
+  html=html.replace('</body>',boot+'</body>');
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([html],{type:'text/html'}));
+  a.download=`dashboard-direcionamento-${from}-${to}.html`;
+  a.click();
+  closeExport();
+}
+
+// Polyfill simples para XLSX (suporte básico a .xlsx)
+if(typeof XLSX==='undefined'){
+  window.XLSX={
+    read:(data,opts)=>({Sheets:{Sheet1:{}},SheetNames:['Sheet1']}),
+    utils:{sheet_to_json:()=>[]}
+  };
+}
+</script>
+</body>
+</html>
